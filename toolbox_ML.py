@@ -54,7 +54,7 @@ def tipifica_variables(df, umbral_categoria, umbral_continua):
 
     for i, val in df_tipificacion['nombre_variable'].items():
         card = df[val].nunique()
-        porcentaje = (df[val].nunique()/len(df)) * 100
+        porcentaje = df[val].nunique()/len(df) * 100
 
         if card == 2:
             df_tipificacion.at[i,'tipo_variable'] = 'Binaria'
