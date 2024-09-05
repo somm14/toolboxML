@@ -8,10 +8,10 @@ def describe_df(df):
     los valores únicos y el % de cardinalidad de cada columna del DF original para tener 
 
     Argumentos:
-    df: DF original sobre el que queremos recibir la información.
+    df (pd.DataFrame): DF original sobre el que queremos recibir la información.
 
     Retorna:
-    DF con la información específica.
+    pd.DataFrame: Df con la información específica.
     '''
 
     #Creo un diccionario con la columna que va a estar fija
@@ -38,34 +38,71 @@ def tipifica_variables(df, umbral_categoria, umbral_continua):
     Esta función sirve para poder tipificar las variables de un DF dado en categórica, numerica continua o numerica discreta.
 
     Argumentos:
-    df: DF original para adquirir las variables que se quiera tificar.
-    umbral_categoria: un entero donde corresponda al umbral que queramos asignar a una variable categórica.
-    umbral_continua: un float donde corresponda al umbral que queramos asignar a una variable numérica.
+    df (pd.DataFrame): DF original para adquirir las variables que se quiera tificar.
+    umbral_categoria (int): un entero donde corresponda al umbral que queramos asignar a una variable categórica.
+    umbral_continua (float): un float donde corresponda al umbral que queramos asignar a una variable numérica.
 
     Retorna:
-    Un DF con dos columnas 'nombre_varibale' y 'tipo_sugerido', que tendrá tantas filas como columnas haya en el DF original.
+    pd.DataFrame: Un DF con dos columnas 'nombre_varibale' y 'tipo_sugerido', que tendrá tantas filas como columnas haya en el DF original.
     '''
 
-    df_tipificacion = pd.DataFrame({
-        'nombre_variable': df.columns
-    })
+    if type(umbral_categoria) != int:
+        raise TypeError(f'El umbral_categoria debe ser de tipo {int}, pero recibió de tipo {type(umbral_categoria)}')
 
-    df_tipificacion['tipo_variable'] = ''
+    elif type(umbral_continua) != float:
+        raise TypeError(f'El umbral_continua debe ser de tipo {float}, pero recibió de tipo {type(umbral_continua)}')
 
-    for i, val in df_tipificacion['nombre_variable'].items():
-        card = df[val].nunique()
-        porcentaje = df[val].nunique()/len(df) * 100
+    else:
 
-        if card == 2:
-            df_tipificacion.at[i,'tipo_variable'] = 'Binaria'
+        df_tipificacion = pd.DataFrame({
+            'nombre_variable': df.columns
+        })
+
+        df_tipificacion['tipo_variable'] = ''
+
+        for i, val in df_tipificacion['nombre_variable'].items():
+            card = df[val].nunique()
+            porcentaje = df[val].nunique()/len(df) * 100
+
+            if card == 2:
+                df_tipificacion.at[i,'tipo_variable'] = 'Binaria'
+            
+            elif card < umbral_categoria:
+                df_tipificacion.at[i,'tipo_variable'] = 'Categórica'
         
-        elif card < umbral_categoria:
-            df_tipificacion.at[i,'tipo_variable'] = 'Categórica'
-    
-        else:
-            if porcentaje > umbral_continua:
-                df_tipificacion.at[i, 'tipo_variable'] = 'Numérica Continua'
             else:
-                df_tipificacion.at[i, 'tipo_variable'] = 'Numérica Discreta'
+                if porcentaje > umbral_continua:
+                    df_tipificacion.at[i, 'tipo_variable'] = 'Numérica Continua'
+                else:
+                    df_tipificacion.at[i, 'tipo_variable'] = 'Numérica Discreta'
     
     return df_tipificacion
+
+
+def get_features_num_regression(df, target_col, umbral_corr, pvalue = None):
+    '''
+    Obtiene las columnas numéricas cuya correlación con target_col es significativa.
+    
+    Argumentos:
+    df (pd.DataFrame): DataFrame que contiene los datos.
+    target_col (str): Nombre de la columna objetivo (debe ser numérica).
+    umbral_corr (float): Umbral de correlación para filtrar las columnas.
+    pvalue (float, optional): Umbral de significancia para el valor p. Si es None, solo se considera el umbral de correlación.
+    
+    Returns:
+    List[str]: Lista de nombres de columnas que cumplen con los criterios.
+    '''
+    if type(umbral_corr) != float:
+        raise TypeError (f'El valor dado en umbral_corr debe ser de tipo {float}, pero recibió un valor de tipo {type(umbral_corr)}')
+    elif umbral_corr < 0 or umbral_corr > 1:
+        raise ValueError(f'El valor de umbral_corr no está entre 0 y 1 ya que el valor es {umbral_corr}')
+        # Aqui falta validar si la target es una variable numerica continua, se puede hcaer con la fucnion tipifica_variables
+
+    else:
+        if pvalue == None:
+            corr = np.abs(df.corr(numeric_only=True)[target_col])
+            corr_list = [i for i,val in corr.items() if val > umbral_corr]
+            corr_list.remove(target_col)
+            return corr_list
+        
+        #else: si pvalue no es NONE
