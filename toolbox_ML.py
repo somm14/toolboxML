@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import f_oneway
+from pandas.api.types import is_numeric_dtype
+from scipy.stats import f_oneway, pearsonr
 
 def describe_df(df):
     '''
@@ -48,10 +49,10 @@ def tipifica_variables(df, umbral_categoria, umbral_continua):
     '''
 
     if type(umbral_categoria) != int:
-        raise TypeError(f'El umbral_categoria debe ser de tipo {int}, pero recibió de tipo {type(umbral_categoria)}')
+        raise TypeError(f'El valor de "umbral_categoria" debe ser de tipo {int}, pero recibió de tipo {type(umbral_categoria)}')
 
     elif type(umbral_continua) != float:
-        raise TypeError(f'El umbral_continua debe ser de tipo {float}, pero recibió de tipo {type(umbral_continua)}')
+        raise TypeError(f'El valor de "umbral_continua" debe ser de tipo {float}, pero recibió de tipo {type(umbral_continua)}')
 
     else:
 
@@ -93,20 +94,43 @@ def get_features_num_regression(df, target_col, umbral_corr, pvalue = None):
     Returns:
     List[str]: Lista de nombres de columnas que cumplen con los criterios.
     '''
-    if type(umbral_corr) != float:
-        raise TypeError (f'El valor dado en umbral_corr debe ser de tipo {float}, pero recibió un valor de tipo {type(umbral_corr)}')
-    elif umbral_corr < 0 or umbral_corr > 1:
-        raise ValueError(f'El valor de umbral_corr no está entre 0 y 1 ya que el valor es {umbral_corr}')
-        # Aqui falta validar si la target es una variable numerica continua, se puede hcaer con la fucnion tipifica_variables
+    if type(umbral_corr) != float: # Chequeo si el umbral_corr es float
+        raise TypeError (f'El valor dado en "umbral_corr" debe ser de tipo {float}, pero recibió un valor de tipo {type(umbral_corr)}')
+    if umbral_corr < 0 or umbral_corr > 1: # Chequeo si el umbral_corr está entre 0 y 1
+        raise ValueError(f'El valor de "umbral_corr" no está entre 0 y 1 ya que el valor es {umbral_corr}')
+    if not is_numeric_dtype(df[target_col]): # Chequeo si es numérica 
+        raise TypeError(f'La target "{target_col}", no es de tipo numérico, ya que esta variable es de tipo {df[target_col].dtypes}')
+    # Falta: si es continua (mas de x valores para que no sea categorica tampoco)
+    # Falta: si el argumento pvalue es float.
 
-    else:
-        if pvalue == None:
-            corr = np.abs(df.corr(numeric_only=True)[target_col])
-            corr_list = [i for i,val in corr.items() if val > umbral_corr]
-            corr_list.remove(target_col)
-            return corr_list
+    else: # Si esta todo correcto
+        corr = np.abs(df.corr(numeric_only=True)[target_col]).sort_values(ascending=False) # correlaciones de todas las numericas con la target en absoluto
+        corr_list = [i for i,val in corr.items() if val > umbral_corr] # lista de las variables que superen el umbral_corr
+        corr_list.remove(target_col) # elimino la target de la lista
+
+        if pvalue == None: # además, si pvalue es None
+            print(f'Las correlaciones con las demás variables numéricas y "{target_col}" son:')
+            print()
+            print(corr)
+            print('\nLista de variables numéricas que tiene correlación según el umbral dado en la función:')
+            return corr_list # solo devuelvo las correlaciones y las variables
         
-        #else: si pvalue no es NONE
+        else: # si ponen un valor en pvalue
+            pv_list = []
+            for val in corr_list: #itera sobre cada una de las variables que SÍ superan el umbral_corr
+                _, p_value = pearsonr(df[val], df[target_col]) #Test de pearsonr
+                if p_value < (1-pvalue): # Condición 
+                    pv_list.append(val)
+                    
+            print(f'Las correlaciones con las demás variables numéricas y "{target_col}" son:')
+            print()
+            print(corr)
+            print('\nLista de variables numéricas que tiene correlación según el umbral dado en la función:')
+            print(corr_list)
+            print(f'\nLas features numéricas con una significancia del {pvalue* 100} % son:')
+            return pv_list # Muestro además las variables con significancia
+
+
 
 
 
