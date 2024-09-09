@@ -133,8 +133,6 @@ def get_features_num_regression(df, target_col, umbral_corr, pvalue = None):
 
 
 
-
-
 def get_features_cat_regression (df, target_col, pvalue = 0.05):
     ''' Esta funcion devueleve una lista con las variables categoricas del dataframe que guardan una relacion
         siginificativa con la variable target, superando el test ANOVA con una confianza estadistica del 95%. 
@@ -144,7 +142,7 @@ def get_features_cat_regression (df, target_col, pvalue = 0.05):
         Argumentos:
         df : (pd.Dataframe) Dataframe con las variables que se quieren testar.
         target_col : (df["columna_target"]) Columna del dataframe que se toma como objetivo (y).
-        p_value : (float) Por defecto 0.05. Umbral de confianza estadistica. 
+        pvalue : (float) Por defecto 0.05. Umbral de confianza estadistica. 
 
         Retorna:
         Lista con las variables categoricas del dataframe. 
@@ -160,33 +158,28 @@ def get_features_cat_regression (df, target_col, pvalue = 0.05):
         print("El argumento 'target_col' introducido no se encuentra en el dataframe")
         return None
     
-    if target_col not in df.select_dtypes(include=[int, float]).columns: #or df[target_col].nunique <=10: 
-        # Comprueba que la columna target sea numérica (int o float) y además sea continua, pasamos un umbral de más de 10 valores únicos.
-        print("El argumento 'target_col' no es una variable numérica continua porque tiene menos de 10 valores únicos")
+    if target_col not in df.select_dtypes(include=[int, float]).columns or df[target_col].nunique() < 10:
+        # Comprueba que la columna target sea numérica (int o float) continua:
+        print("El argumento 'target_col' no es una variable numérica continua.")
         return None
     
     # Abrimos una lista para almacenar las columnas clasificadas como categóricas que superen el test:
 
     categoricas = []
 
-    for columna in df.columns:     
+    for columna in df.columns:   
 
-        if df[columna].dtype == object: # Buscamos las columnas categoricas que haya en el df, si la encuentra realiza el test:
-            # El test ANOVA agrupa los valores por cada categoria de la columna:
-            #for categoria in df[columna].unique(): # metemos los valores unicos de la columna categorica en una variable
-                #mascara = df[[target_col, columna]]
-                #filtro = mascara.loc[mascara[columna] == categoria]
+        if columna != target_col: # Salta la columna target
 
-            grupos = df[columna].unique()  # Obtener los valores únicos de la columna categórica, en este caso la compañía área
-            categoria_target = [df[df[columna] == grupo][target_col] for grupo in grupos] # obtenemos los ingresos por compañía y los incluimos en una lista
-
-            p_val = f_oneway(*categoria_target)
-
-                #grupo = [df[target_col]][df[columna]] == categoria # agrupamos valores de la columna target y categoria
-                #p_value = f_oneway(filtro[target_col].values) # realizamos test
-
-            if p_val < pvalue: # Si el resultado del pvalor del test es menor que nuestro umbral, lo metemos en la lista
-                categoricas.append(columna)
-
-        return categoricas, p_val # probamos a retornar también pval para ver si sigue dando error. 
+            if df[columna].dtype == object or df[columna].nunique() < 10 : # Buscamos las columnas categoricas que haya en el df, si la encuentra realiza el test:
+            
+                grupos = df[columna].unique()  # Obtiene los valores únicos de la columna categórica
+                categoria = [df[df[columna] == grupo][target_col] for grupo in grupos] # Filtra la columna del df por categoria y valores de la columna target
+    
+                _, p_val = f_oneway(*categoria) # Test ANOVA
+                
+                if p_val < pvalue: # Si el resultado del pvalor del test es menor que nuestro umbral, lo metemos en la lista
+                    categoricas.append(columna)
+    
+    return print(f"Las variables categóricas encontradas son: {categoricas}")
 
