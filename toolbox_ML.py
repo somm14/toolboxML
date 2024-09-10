@@ -18,6 +18,7 @@ def describe_df(df):
 
     #Creo un diccionario con la columna que va a estar fija
     #Y después añadir las columnas del DF original
+
     dict_col = {'COL_N': ['DATA_TYPE', 'MISSINGS (%)', 'UNIQUE_VALUES', 'CARDIN (%)']}
 
     #Fórmula para calcular el porcentaje de nulos
@@ -60,23 +61,23 @@ def tipifica_variables(df, umbral_categoria, umbral_continua):
             'nombre_variable': df.columns
         })
 
-        df_tipificacion['tipo_variable'] = ''
+        df_tipificacion['tipo_sugerido'] = ''
 
         for i, val in df_tipificacion['nombre_variable'].items():
             card = df[val].nunique()
             porcentaje = df[val].nunique()/len(df) * 100
 
             if card == 2:
-                df_tipificacion.at[i,'tipo_variable'] = 'Binaria'
+                df_tipificacion.at[i,'tipo_sugerido'] = 'Binaria'
             
             elif card < umbral_categoria:
-                df_tipificacion.at[i,'tipo_variable'] = 'Categórica'
+                df_tipificacion.at[i,'tipo_sugerido'] = 'Categórica'
         
             else:
                 if porcentaje > umbral_continua:
-                    df_tipificacion.at[i, 'tipo_variable'] = 'Numérica Continua'
+                    df_tipificacion.at[i, 'tipo_sugerido'] = 'Numérica Continua'
                 else:
-                    df_tipificacion.at[i, 'tipo_variable'] = 'Numérica Discreta'
+                    df_tipificacion.at[i, 'tipo_sugerido'] = 'Numérica Discreta'
     
     return df_tipificacion
 
@@ -95,13 +96,22 @@ def get_features_num_regression(df, target_col, umbral_corr, pvalue = None):
     List[str]: Lista de nombres de columnas que cumplen con los criterios.
     '''
     if type(umbral_corr) != float: # Chequeo si el umbral_corr es float
-        raise TypeError (f'El valor dado en "umbral_corr" debe ser de tipo {float}, pero recibió un valor de tipo {type(umbral_corr)}')
+        print(f'El valor dado en "umbral_corr" debe ser de tipo {float}, pero recibió un valor de tipo {type(umbral_corr)}')
+        return None
     if umbral_corr < 0 or umbral_corr > 1: # Chequeo si el umbral_corr está entre 0 y 1
-        raise ValueError(f'El valor de "umbral_corr" no está entre 0 y 1 ya que el valor es {umbral_corr}')
+        print(f'El valor de "umbral_corr" no está entre 0 y 1 ya que el valor es {umbral_corr}')
+        return None
     if not is_numeric_dtype(df[target_col]): # Chequeo si es numérica 
-        raise TypeError(f'La target "{target_col}", no es de tipo numérico, ya que esta variable es de tipo {df[target_col].dtypes}')
-    # Falta: si es continua (mas de x valores para que no sea categorica tampoco)
-    # Falta: si el argumento pvalue es float.
+        print(f'La target "{target_col}", no es de tipo numérico, ya que esta variable es de tipo {df[target_col].dtypes}')
+        return None
+    if df[target_col].nunique() < 10:
+        print(f'Error: La columna target "{target_col}" no tiene alta cardinalidad, ya que tiene menos de 10 valores únicos.')
+        return None
+    if pvalue is not None:
+        if not isinstance(pvalue, float):
+            raise TypeError(f'El valor de "pvalue" debe ser de tipo {float}, pero recibió de tipo {type(pvalue)}')
+        if pvalue <= 0 or pvalue >= 1:
+            raise ValueError(f'El valor de "pvalue" debe estar entre 0 y 1, pero el valor dado fue {pvalue}')    
 
     else: # Si esta todo correcto
         corr = np.abs(df.corr(numeric_only=True)[target_col]).sort_values(ascending=False) # correlaciones de todas las numericas con la target en absoluto
@@ -160,8 +170,14 @@ def get_features_cat_regression (df, target_col, pvalue = 0.05):
     
     if target_col not in df.select_dtypes(include=[int, float]).columns or df[target_col].nunique() < 10:
         # Comprueba que la columna target sea numérica (int o float) continua:
-        print("El argumento 'target_col' no es una variable numérica continua.")
+        print("El argumento 'target_col' no es una variable numérica continua o discreta con alta cardinalidad.")
         return None
+    
+    if not isinstance(pvalue, float):
+        raise TypeError(f'El valor de "pvalue" debe ser de tipo {float}, pero recibió de tipo {type(pvalue)}')
+    if pvalue <= 0 or pvalue >= 1:
+        raise ValueError(f'El valor de "pvalue" debe estar entre 0 y 1, pero el valor dado fue {pvalue}')
+
     
     # Abrimos una lista para almacenar las columnas clasificadas como categóricas que superen el test:
 
@@ -180,6 +196,7 @@ def get_features_cat_regression (df, target_col, pvalue = 0.05):
                 
                 if p_val < pvalue: # Si el resultado del pvalor del test es menor que nuestro umbral, lo metemos en la lista
                     categoricas.append(columna)
+                    print(f'{columna} --> {p_val}')
     
     return print(f"Las variables categóricas encontradas son: {categoricas}")
 
