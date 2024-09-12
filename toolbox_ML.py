@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from scipy.stats import f_oneway, pearsonr
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 def describe_df(df):
     '''
@@ -145,25 +147,19 @@ def get_features_num_regression(df, target_col, umbral_corr, pvalue = None):
 def plot_features_num_regression (df, target_col="", columns=[], umbral_corr=0, pvalue=None):
 
     """
-    ARGUMENTOS:
 
-    Un dataframe.
-    Un argumento "target_col" con valor por defecto "".
-    Una lista de strings ("columns") cuyo valor por defecto es la lista vacía.
-    Un valor de correlación ("umbral_corr", con valor 0 por defecto
-    Un argumento ("pvalue") con valor "None" por defecto.
+    Esta función sirve para visualizar aquellas variables que tengan correlación con la variable objetivo.
 
-    Si la lista no está vacía:
-        1) la función pintará una pairplot del dataframe considerando la columna designada por "target_col" y aquellas incluidas en "column" que cumplan que su correlación con "target_col" es superior en valor absoluto a "umbral_corr", 
-            1.1) y que, en el caso de ser pvalue diferente de "None", además cumplan el test de correlación para el nivel 1-pvalue de significación estadística. 
+    Argumentos:
+    df (pd.DataFrame): DataFrame que contiene los valores.
+    target_col (str): Teniendo un valor por defecto "".
+    columns(List[str]): Lista de strings cuyo valor por defecto es una lista vacía.
+    umbral_corr(float): Con valor por defecto 0
+    pvalue(float): Umbral de significancia para el valor p. Por defecto, con valor None
 
-    La función devolverá los valores de "columns" que cumplan con las condiciones anteriores. 
+    Retorna:
+    Pairplot del DataFrame consirando los valores adjuducados en cada argumento de la función.
 
-    EXTRA: Se valorará adicionalmente el hecho de que si la lista de columnas a pintar es grande se pinten varios pairplot con un máximo de cinco columnas en cada pairplot (siendo siempre una de ellas la indicada por "target_col")
-
-    Si la lista está vacía, entonces la función igualará "columns" a las variables numéricas del dataframe y se comportará como se describe en el párrafo anterior.
-
-    De igual manera que en la función descrita anteriormente deberá hacer un check de los valores de entrada y comportarse como se describe en el último párrafo de la función `get_features_num_regresion`
     """
 
     if type(umbral_corr) != float: # Chequeo si el umbral_corr es float
@@ -188,17 +184,18 @@ def plot_features_num_regression (df, target_col="", columns=[], umbral_corr=0, 
         if not columns: # Comprobamos que la lista no esté vacía. 
             # Si la lista de columnas está vacía, la igualamos a las columnas numéricas del dataframe
             columns = df.select_dtypes(include='number').columns.tolist()
+            columns.remove(target_col)
             print("Como no hay columnas en la lista del argumento usamos las numéricas, que son: ", columns)
         # Filtrar columnas que cumplen con la correlación y el p-value
-        valid_columns = []
-        for col in columns:
-            if col != target_col:
-                corr, p_val = pearsonr(df[target_col], df[col])
-                if abs(corr) > umbral_corr and (pvalue is None or p_val < (1 - pvalue)):
-                    valid_columns.append(col)
-        return print("Las columnas válidas para el pairplot son", valid_columns)
+            valid_columns = []
+            for col in columns:
+                if col != target_col:
+                    corr, p_val = pearsonr(df[target_col], df[col])
+                    if abs(corr) > umbral_corr and (pvalue is None or p_val < (1 - pvalue)):
+                        valid_columns.append(col)
+            print("Las columnas válidas para el pairplot son", valid_columns)
                 
-    if valid_columns:
+    #if valid_columns:
             sns.pairplot(df, vars=valid_columns, hue=target_col)
             plt.show()
 
@@ -267,4 +264,72 @@ def get_features_cat_regression (df, target_col, pvalue = 0.05):
                     print(f'{columna} --> {p_val}')
     
     return print(f"Las variables categóricas encontradas son: {categoricas}")
+
+
+
+def plot_histograms_by_category(df, target_col="", columns=[], pvalue=0.05, with_individual_plot=False):
+    """
+    Esta función realiza un análisis estadístico entre la columna 'target_col' y las variables categóricas 
+    en 'columns', pintando histogramas agrupados solo para aquellas que superan el nivel de significación estadística 
+    dado por el valor de 'pvalue'. Si 'columns' está vacío, se toman las variables numéricas del dataframe.
+
+    Argumentos:
+    df (pd.DataFrame): El dataframe que contiene los datos.
+    target_col (str): Columna objetivo, debe ser numérica contínua o discreta con alta cardinalidad. Valor por defecto es una cadena vacía.
+    columns (list): Lista de variables categóricas a evaluar. Valor por defecto es una lista vacía.
+    pvalue (float): Nivel de significancia estadística, por defecto 0.05.
+    with_individual_plot (bool): Si es True, generará un histograma por cada variable categórica individualmente. Valor por defecto False.
+
+    Retorna:
+    List[str]: Lista de columnas categóricas que tienen una relación estadísticamente significativa con la variable objetivo.
+    """
+
+    # Verificar que df sea un DataFrame válido
+    if not isinstance(df, pd.DataFrame):
+        print("Error: El argumento 'df' no es un DataFrame válido.")
+        return None
+
+    # Verificar que target_col sea una variable válida en el DataFrame
+    if target_col not in df.columns:
+        print(f"Error: La columna '{target_col}' no se encuentra en el DataFrame.")
+        return None
+
+    # Verificar que pvalue sea un float válido entre 0 y 1
+    if not isinstance(pvalue, float) or not (0 < pvalue < 1):
+        print(f"Error: El valor de 'pvalue' debe ser un float entre 0 y 1, pero recibió {pvalue}.")
+        return None
+
+    # Si la lista 'columns' está vacía, asignar las columnas numéricas del DataFrame
+    if not columns:
+        columns = df.select_dtypes(include=[int, float]).columns.tolist()
+    
+    # Verificar que la columna target sea numérica contínua o discreta con alta cardinalidad
+    if target_col not in df.select_dtypes(include=[int, float]).columns or df[target_col].nunique() < 10:
+        print("El argumento 'target_col' no es una variable numérica continua o discreta con alta cardinalidad.")
+        return None
+
+
+    # Lista para almacenar las variables que pasan el test de significancia
+    significant_columns = []
+
+    # Recorremos todas las columnas en la lista 'columns'
+    for col in valid_columns: ## Esta variable dónde se crea dentro de esta funcion??
+
+        # Realizamos el test ANOVA entre la variable continua 'target_col' y la categórica 'col'
+        grupos = df[col].unique()
+        grupos_datos = [df[df[col] == grupo][target_col] for grupo in grupos]
+        _, p_val = f_oneway(*grupos_datos)
+
+        # Si la relación es significativa, agregamos la columna y pintamos los gráficos
+        if p_val < pvalue:
+            significant_columns.append(col)
+
+            # Graficar histogramas agrupados por categorías
+            if with_individual_plot:
+                plt.figure(figsize=(10, 6))
+                sns.histplot(data=df, x=target_col, hue=col, multiple="stack")
+                plt.title(f'Histograma de {target_col} agrupado por {col}')
+                plt.show()
+
+    return significant_columns 
 
