@@ -142,6 +142,74 @@ def get_features_num_regression(df, target_col, umbral_corr, pvalue = None):
 
 
 
+def plot_features_num_regression (df, target_col="", columns=[], umbral_corr=0, pvalue=None):
+
+    """
+    ARGUMENTOS:
+
+    Un dataframe.
+    Un argumento "target_col" con valor por defecto "".
+    Una lista de strings ("columns") cuyo valor por defecto es la lista vacía.
+    Un valor de correlación ("umbral_corr", con valor 0 por defecto
+    Un argumento ("pvalue") con valor "None" por defecto.
+
+    Si la lista no está vacía:
+        1) la función pintará una pairplot del dataframe considerando la columna designada por "target_col" y aquellas incluidas en "column" que cumplan que su correlación con "target_col" es superior en valor absoluto a "umbral_corr", 
+            1.1) y que, en el caso de ser pvalue diferente de "None", además cumplan el test de correlación para el nivel 1-pvalue de significación estadística. 
+
+    La función devolverá los valores de "columns" que cumplan con las condiciones anteriores. 
+
+    EXTRA: Se valorará adicionalmente el hecho de que si la lista de columnas a pintar es grande se pinten varios pairplot con un máximo de cinco columnas en cada pairplot (siendo siempre una de ellas la indicada por "target_col")
+
+    Si la lista está vacía, entonces la función igualará "columns" a las variables numéricas del dataframe y se comportará como se describe en el párrafo anterior.
+
+    De igual manera que en la función descrita anteriormente deberá hacer un check de los valores de entrada y comportarse como se describe en el último párrafo de la función `get_features_num_regresion`
+    """
+
+    if type(umbral_corr) != float: # Chequeo si el umbral_corr es float
+        print(f'El valor dado en "umbral_corr" debe ser de tipo {float}, pero recibió un valor de tipo {type(umbral_corr)}')
+        return None
+    if umbral_corr < 0 or umbral_corr > 1: # Chequeo si el umbral_corr está entre 0 y 1
+        print(f'El valor de "umbral_corr" no está entre 0 y 1 ya que el valor es {umbral_corr}')
+        return None
+    if not is_numeric_dtype(df[target_col]): # Chequeo si es numérica 
+        print(f'La target "{target_col}", no es de tipo numérico, ya que esta variable es de tipo {df[target_col].dtypes}')
+        return None
+    if df[target_col].nunique() < 10: # Chequeo que target col tenga por lo menos 10 valores diferentes para asegurarme la cardinalidad.
+        print(f'Error: La columna target "{target_col}" no tiene alta cardinalidad, ya que tiene menos de 10 valores únicos.')
+        return None
+    if pvalue is not None: # Chequeo que el pvalue esté entre 0 y 1.
+        if not isinstance(pvalue, float):
+            raise TypeError(f'El valor de "pvalue" debe ser de tipo {float}, pero recibió de tipo {type(pvalue)}')
+        if pvalue <= 0 or pvalue >= 1:
+            raise ValueError(f'El valor de "pvalue" debe estar entre 0 y 1, pero el valor dado fue {pvalue}')    
+
+    else: # Si esta todo correcto
+        if not columns: # Comprobamos que la lista no esté vacía. 
+            # Si la lista de columnas está vacía, la igualamos a las columnas numéricas del dataframe
+            columns = df.select_dtypes(include='number').columns.tolist()
+            print("Como no hay columnas en la lista del argumento usamos las numéricas, que son: ", columns)
+        # Filtrar columnas que cumplen con la correlación y el p-value
+        valid_columns = []
+        for col in columns:
+            if col != target_col:
+                corr, p_val = pearsonr(df[target_col], df[col])
+                if abs(corr) > umbral_corr and (pvalue is None or p_val < (1 - pvalue)):
+                    valid_columns.append(col)
+        return print("Las columnas válidas para el pairplot son", valid_columns)
+                
+    if valid_columns:
+            sns.pairplot(df, vars=valid_columns, hue=target_col)
+            plt.show()
+
+    return valid_columns
+        # Crear el pairplot si hay columnas válidas
+       # for i in range(0, len(valid_columns), 4):
+        #    subset = valid_columns[i:i+4]
+         #   sns.pairplot(df, vars=[target_col] + subset, hue=target_col)
+          #  plt.show()
+
+          
 
 def get_features_cat_regression (df, target_col, pvalue = 0.05):
     ''' Esta funcion devueleve una lista con las variables categoricas del dataframe que guardan una relacion
