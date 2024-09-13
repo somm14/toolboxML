@@ -267,7 +267,7 @@ def get_features_cat_regression (df, target_col, pvalue = 0.05):
 
 
 
-def plot_features_cat_regression(df, target_col="", columns=[], pvalue=0.05, with_individual_plot=False):
+def plot_features_cat_regression (df, target_col="", columns=[], pvalue=0.05, with_individual_plot=False):
     """
     Esta función realiza un análisis estadístico entre la columna 'target_col' y las variables categóricas 
     en 'columns', pintando histogramas agrupados solo para aquellas que superan el nivel de significación estadística 
@@ -299,37 +299,58 @@ def plot_features_cat_regression(df, target_col="", columns=[], pvalue=0.05, wit
         print(f"Error: El valor de 'pvalue' debe ser un float entre 0 y 1, pero recibió {pvalue}.")
         return None
 
-    # Si la lista 'columns' está vacía, asignar las columnas numéricas del DataFrame
+    # Si la lista 'columns' está vacía, asignar todas las columnas numéricas del DataFrame excepto target_col
     if not columns:
-        columns = df.select_dtypes(include=[int, float]).columns.tolist()
+        columns = [col for col in df.select_dtypes(include=[int, float]).columns if col != target_col]
     
     # Verificar que la columna target sea numérica contínua o discreta con alta cardinalidad
     if target_col not in df.select_dtypes(include=[int, float]).columns or df[target_col].nunique() < 10:
         print("El argumento 'target_col' no es una variable numérica continua o discreta con alta cardinalidad.")
         return None
 
-
     # Lista para almacenar las variables que pasan el test de significancia
     significant_columns = []
 
     # Recorremos todas las columnas en la lista 'columns'
-    for col in valid_columns: ## Esta variable dónde se crea dentro de esta funcion??
+    for col in columns:
+        
+        if col in df.select_dtypes(include=['object']).columns or df[col].nunique() < 10:  # Variables categóricas
+            # Realizamos el test ANOVA entre la variable continua 'target_col' y la categórica 'col'
+            grupos = df[col].unique()
+            grupos_datos = [df[df[col] == grupo][target_col] for grupo in grupos]
+            _, p_val = f_oneway(*grupos_datos)
 
-        # Realizamos el test ANOVA entre la variable continua 'target_col' y la categórica 'col'
-        grupos = df[col].unique()
-        grupos_datos = [df[df[col] == grupo][target_col] for grupo in grupos]
-        _, p_val = f_oneway(*grupos_datos)
+            # Si la relación es significativa, agregamos la columna y pintamos los gráficos
+            if p_val < pvalue:
+                significant_columns.append(col)
 
-        # Si la relación es significativa, agregamos la columna y pintamos los gráficos
-        if p_val < pvalue:
-            significant_columns.append(col)
+                # Graficar histogramas agrupados por categorías
+                if with_individual_plot:
+                    plt.figure(figsize=(10, 6))
+                    sns.histplot(data=df, x=target_col, hue=col, multiple="stack")
+                    plt.title(f'Histograma de {target_col} agrupado por {col}')
+                    plt.show()
 
-            # Graficar histogramas agrupados por categorías
-            if with_individual_plot:
-                plt.figure(figsize=(10, 6))
-                sns.histplot(data=df, x=target_col, hue=col, multiple="stack")
-                plt.title(f'Histograma de {target_col} agrupado por {col}')
-                plt.show()
+        else:  # Variables numéricas
+            # Calcular la correlación de Pearson entre target_col y cada variable numérica
+            corr, p_val = pearsonr(df[target_col], df[col])
 
-    return significant_columns 
+            # Verificar si la correlación y el p-valor cumplen con los umbrales
+            if p_val < pvalue:
+                significant_columns.append(col)
+
+                # Graficar la relación si se solicita
+                if with_individual_plot:
+                    plt.figure(figsize=(10, 6))
+                    sns.regplot(x=df[col], y=df[target_col], line_kws={"color": "red"})
+                    plt.title(f'Relación entre {target_col} y {col} (Correlación: {corr:.2f}, p-value: {p_val:.4f})')
+                    plt.xlabel(col)
+                    plt.ylabel(target_col)
+                    plt.show()
+
+    # Si no hay columnas significativas, mostrar un mensaje
+    if not significant_columns:
+        print("No se encontraron columnas con una relación estadísticamente significativa con la variable objetivo.")
+
+    return significant_columns
 
