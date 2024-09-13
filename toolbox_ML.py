@@ -9,7 +9,7 @@ def describe_df(df):
     '''
     Esta función muestra información específica del DF original. 
     Esa información será: el tipo de objeto, el % de valores nulos o missings,
-    los valores únicos y el % de cardinalidad de cada columna del DF original para tener 
+    los valores únicos y el % de cardinalidad de cada columna del DF original.
 
     Argumentos:
     df (pd.DataFrame): DF original sobre el que queremos recibir la información.
@@ -161,6 +161,7 @@ def plot_features_num_regression (df, target_col="", columns=[], umbral_corr=0, 
     Pairplot del DataFrame consirando los valores adjuducados en cada argumento de la función.
 
     """
+    valid_columns = [] # Pongo fuera la lista vacia para que valga tanto para si hay lista vacia como si no
 
     if type(umbral_corr) != float: # Chequeo si el umbral_corr es float
         print(f'El valor dado en "umbral_corr" debe ser de tipo {float}, pero recibió un valor de tipo {type(umbral_corr)}')
@@ -187,7 +188,6 @@ def plot_features_num_regression (df, target_col="", columns=[], umbral_corr=0, 
             columns.remove(target_col)
             print("Como no hay columnas en la lista del argumento usamos las numéricas, que son: ", columns)
         # Filtrar columnas que cumplen con la correlación y el p-value
-            valid_columns = []
             for col in columns:
                 if col != target_col:
                     corr, p_val = pearsonr(df[target_col], df[col])
@@ -198,13 +198,21 @@ def plot_features_num_regression (df, target_col="", columns=[], umbral_corr=0, 
     #if valid_columns:
             sns.pairplot(df, vars=valid_columns, hue=target_col)
             plt.show()
-
-    return valid_columns
-        # Crear el pairplot si hay columnas válidas
-       # for i in range(0, len(valid_columns), 4):
-        #    subset = valid_columns[i:i+4]
-         #   sns.pairplot(df, vars=[target_col] + subset, hue=target_col)
-          #  plt.show()
+            return valid_columns
+        
+        else: # Si hay una lista de variables
+            for col in columns:
+                if col != target_col:
+                    corr, p_val = pearsonr(df[target_col], df[col])
+                    if abs(corr) > umbral_corr and (pvalue is None or p_val < (1 - pvalue)):
+                        valid_columns.append(col)
+            print("Las columnas válidas para el pairplot son", valid_columns)
+            
+            for i in range(0, len(valid_columns), 4):
+                subset = valid_columns[i:i+4]
+                sns.pairplot(df, vars=[target_col] + subset, hue=target_col)
+                plt.show()
+                return valid_columns
 
           
 
