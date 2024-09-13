@@ -109,12 +109,7 @@ def get_features_num_regression(df, target_col, umbral_corr, pvalue = None):
     if df[target_col].nunique() < 10:
         print(f'Error: La columna target "{target_col}" no tiene alta cardinalidad, ya que tiene menos de 10 valores únicos.')
         return None
-    if pvalue is not None:
-        if not isinstance(pvalue, float):
-            raise TypeError(f'El valor de "pvalue" debe ser de tipo {float}, pero recibió de tipo {type(pvalue)}')
-        if pvalue <= 0 or pvalue >= 1:
-            raise ValueError(f'El valor de "pvalue" debe estar entre 0 y 1, pero el valor dado fue {pvalue}')    
-
+    
     else: # Si esta todo correcto
         corr = np.abs(df.corr(numeric_only=True)[target_col]).sort_values(ascending=False) # correlaciones de todas las numericas con la target en absoluto
         corr_list = [i for i,val in corr.items() if val > umbral_corr] # lista de las variables que superen el umbral_corr
@@ -128,19 +123,24 @@ def get_features_num_regression(df, target_col, umbral_corr, pvalue = None):
             return corr_list # solo devuelvo las correlaciones y las variables
         
         else: # si ponen un valor en pvalue
-            pv_list = []
-            for val in corr_list: #itera sobre cada una de las variables que SÍ superan el umbral_corr
-                _, p_value = pearsonr(df[val], df[target_col]) #Test de pearsonr
-                if p_value < (1-pvalue): # Condición 
-                    pv_list.append(val)
-                    
-            print(f'Las correlaciones con las demás variables numéricas y "{target_col}" son:')
-            print()
-            print(corr)
-            print('\nLista de variables numéricas que tiene correlación según el umbral dado en la función:')
-            print(corr_list)
-            print(f'\nLas features numéricas con una significancia del {pvalue* 100} % son:')
-            return pv_list # Muestro además las variables con significancia
+            if type(pvalue) != float:
+                raise TypeError(f'El valor de "pvalue" debe ser de tipo {float}, pero recibió de tipo {type(pvalue)}')
+            if pvalue <= 0 or pvalue >= 1:
+                raise ValueError(f'El valor de "pvalue" debe estar entre 0 y 1, pero el valor dado fue {pvalue}')
+            else:
+                pv_list = []
+                for val in corr_list: #itera sobre cada una de las variables que SÍ superan el umbral_corr
+                    _, p_value = pearsonr(df[val], df[target_col]) #Test de pearsonr
+                    if p_value < (1-pvalue): # Condición 
+                        pv_list.append(val)
+                        
+                print(f'Las correlaciones con las demás variables numéricas y "{target_col}" son:')
+                print()
+                print(corr)
+                print('\nLista de variables numéricas que tiene correlación según el umbral dado en la función:')
+                print(corr_list)
+                print(f'\nLas features numéricas con una significancia del {pvalue* 100} % son:')
+                return pv_list # Muestro además las variables con significancia
 
 
 
