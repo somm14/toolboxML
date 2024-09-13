@@ -267,7 +267,7 @@ def get_features_cat_regression (df, target_col, pvalue = 0.05):
 
 
 
-def plot_histograms_by_category(df, target_col="", columns=[], pvalue=0.05, with_individual_plot=False):
+def plot_features_cat_regression(df, target_col="", columns=[], pvalue=0.05, with_individual_plot=False):
     """
     Esta función realiza un análisis estadístico entre la columna 'target_col' y las variables categóricas 
     en 'columns', pintando histogramas agrupados solo para aquellas que superan el nivel de significación estadística 
